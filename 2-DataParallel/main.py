@@ -33,6 +33,7 @@ def main():
     #! ----------------------------------------------------------------
 
     trainset, testset = utils.get_dataset()
+    # TODO: add test code
     #! ---------------------------------------------------------------
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(trainset, num_replicas=args.world_size, rank=args.rank)
@@ -59,6 +60,7 @@ def main():
             
             loss_sum += loss.item()
             predict = torch.argmax(outputs, dim=1)
+            # TODO: acc all-reduce check
             acc_sum += torch.sum(predict == labels).item()
             
             optimizer.zero_grad()
