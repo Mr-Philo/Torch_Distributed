@@ -1,3 +1,6 @@
+# dataset
+2-DataParallel/data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
