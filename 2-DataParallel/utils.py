@@ -61,7 +61,7 @@ def get_dataset(path='./data'):
     return trainset, testset
 
 
-def init_distributed_mode(args):
+def init_distributed_mode(args, disable_print=True):
     if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ["WORLD_SIZE"])
@@ -86,7 +86,8 @@ def init_distributed_mode(args):
         backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
     )
     torch.distributed.barrier()
-    setup_for_distributed(args.rank == 0)
+    if disable_print:
+        setup_for_distributed(args.rank == 0)
 
 
 # utils for distributed training
@@ -133,3 +134,14 @@ def is_main_process():
 def save_on_master(*args, **kwargs):
     if is_main_process():
         torch.save(*args, **kwargs)
+
+
+def reduce_across_processes(val):
+    if not is_dist_avail_and_initialized():
+        # nothing to sync, but we still convert to tensor for consistency with the distributed case.
+        return torch.tensor(val)
+
+    t = torch.tensor(val, device="cuda")
+    dist.barrier()
+    dist.all_reduce(t)
+    return t

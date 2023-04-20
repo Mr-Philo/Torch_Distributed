@@ -67,6 +67,7 @@ def main():
             loss.backward()
             optimizer.step()
         
+        acc_sum = utils.reduce_across_processes(acc_sum)
         print("Epoch: {}, Loss: {:.2f}, acc: {:.2f}, time cost: {:.2f}s".format(epoch, loss_sum/len(train_loader), acc_sum/len(trainset), time.time()-t0))
         
         
