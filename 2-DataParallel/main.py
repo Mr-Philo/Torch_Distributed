@@ -5,6 +5,7 @@ import argparse
 import os
 import time
 import utils
+import deepspeed
 
 
 def get_args_parser():
@@ -14,12 +15,19 @@ def get_args_parser():
     parser.add_argument('--backend', type=str, default='nccl')
     parser.add_argument("--dist-url", type=str, default="env://")
     parser.add_argument("--sync-bn", action="store_true")
+    parser.add_argument("--use-deepspeed", action="store_true")
+    
+    args, _ = parser.parse_known_args()
+    if args.use_deepspeed:
+        parser = deepspeed.add_config_arguments(parser)
     
     return parser.parse_args()
 
 
 def main():
     args = get_args_parser()
+    if args.use_deepspeed:
+        args.deepspeed_config = "./config/deepspeed_cifar_config.json"
     utils.init_distributed_mode(args)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,6 +52,9 @@ def main():
 
     criteria = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+    
+    if args.use_deepspeed:
+        net, optimizer, _, _ = deepspeed.initialize(args=args, model=net, optimizer=optimizer)
 
     for epoch in range(10):
         #! ---------------------------------------------------------------
@@ -51,6 +62,7 @@ def main():
             train_sampler.set_epoch(epoch)
         #! ----------------------------------------------------------------
         t0 = time.time()
+        net.train()
         
         loss_sum,acc_sum = 0,0
         for i, (inputs, labels) in enumerate(train_loader):
@@ -60,12 +72,15 @@ def main():
             
             loss_sum += loss.item()
             predict = torch.argmax(outputs, dim=1)
-            # TODO: acc all-reduce check
             acc_sum += torch.sum(predict == labels).item()
             
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if args.use_deepspeed:
+                net.backward(loss)
+                net.step()
+            else:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
         
         acc_sum = utils.reduce_across_processes(acc_sum)
         print("Epoch: {}, Loss: {:.2f}, acc: {:.2f}, time cost: {:.2f}s".format(epoch, loss_sum/len(train_loader), acc_sum/len(trainset), time.time()-t0))
