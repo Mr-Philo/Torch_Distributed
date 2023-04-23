@@ -82,11 +82,15 @@ def init_distributed_mode(args, disable_print=True):
     args.dist_backend = "nccl"
     print(f"| distributed init (rank {args.rank}): {args.dist_url}", flush=True)
 
-    if args.use_deepspeed:
-        import deepspeed
-        deepspeed.init_distributed(dist_backend=args.dist_backend, init_method=args.dist_url)
-    else:
+    try:
+        if args.use_deepspeed:
+            import deepspeed
+            deepspeed.init_distributed(dist_backend=args.dist_backend, init_method=args.dist_url)
+        else:
+            torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
+    except AttributeError:
         torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank)
+    
     torch.distributed.barrier()
     if disable_print:
         setup_for_distributed(args.rank == 0)
