@@ -14,13 +14,14 @@ from megatron.core.models.gpt.gpt_model import GPTModel
 from megatron.core.models.gpt.gpt_layer_specs import get_gpt_layer_local_spec
 from megatron.core.datasets.utils import Split
 from megatron.core.datasets.gpt_dataset import GPTDatasetConfig, MockGPTDataset
+import warnings
 
 def initialize_distributed(tensor_model_parallel_size = 1, pipeline_model_parallel_size = 1):
     parallel_state.destroy_model_parallel()
 
     # Torch setup for distributed training
     rank = int(os.environ['LOCAL_RANK'])
-    world_size = torch.cuda.device_count()
+    world_size = int(os.environ["WORLD_SIZE"])
     torch.cuda.set_device(rank)
     torch.distributed.init_process_group(world_size=world_size, rank=rank)
 
@@ -133,9 +134,14 @@ if __name__ == "__main__":
     # Saving the model
     ckpt_path = os.getcwd() + '/ckpt'
     Path(ckpt_path).mkdir(exist_ok=True)
-    save_distributed_checkpoint(gpt_model=gpt_model, checkpoint_path=ckpt_path)
+    if next(Path(ckpt_path).iterdir(), None) is not None:       # to avoid megatron.core.dist_checkpointing.serialization.CheckpointingException
+        warnings.warn('Destination ckpt path is not empty, skipping saving checkpoint')
+    else:
+        save_distributed_checkpoint(gpt_model=gpt_model, checkpoint_path=ckpt_path)
 
     # Loading the model
     gpt_model = load_distributed_checkpoint(gpt_model=gpt_model, checkpoint_path=ckpt_path)
     gpt_model.to(device)
     print('Successfully loaded the model')   
+    
+# torchrun --nproc-per-node=4 simple_megatron_transformer.py

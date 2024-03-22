@@ -1,6 +1,9 @@
 # dataset
 2-DataParallel/data/
 
+# ckpt
+3-TensorParallel/ckpt/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
