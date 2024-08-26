@@ -5,7 +5,10 @@ import argparse
 import os
 import time
 import utils
-import deepspeed
+try:
+    import deepspeed
+except ImportError:
+    deepspeed = None
 
 
 def get_args_parser():
